@@ -1,0 +1,106 @@
+# ============================================================================
+# PROJECT CONFIGURATION: 000-config.yaml
+# ============================================================================
+# This is the ONLY configuration file that changes per project.
+# Location: {basePath}/Projects/{project}/000-config.yaml
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# PROJECT IDENTIFICATION
+# ----------------------------------------------------------------------------
+project: SalesAnalysis
+description: "Quarterly sales analysis project"
+investigators: |
+  Jane Smith
+  John Doe
+systemuser: username
+
+# ----------------------------------------------------------------------------
+# STUDY/ANALYSIS PARAMETERS
+# ----------------------------------------------------------------------------
+startDate: "2020-01-01"
+stopDate: ${today}
+historyStart: "2020-01-01"
+historyStop: ${today}
+
+# Project-specific identifiers (used in table naming)
+disease: "SALES"                      # Or study abbreviation
+schemaTag: "RWD"                      # Schema structure type
+
+# Analysis parameters
+gap: 90                               # Days for grouping
+serviceToFirstDx: 60                  # Baseline period
+
+# ----------------------------------------------------------------------------
+# SCHEMA MAPPINGS
+# ----------------------------------------------------------------------------
+# Maps logical schema names to physical Spark catalog schemas.
+# The logical names (RWDSchema, projectSchema) match entries in config-global.yaml
+
+schemas:
+  RWDSchema: company_data_warehouse   # Source data (uses RWDTables from config-RWD.yaml)
+  projectSchema: sales_analysis_2025  # Output tables (uses projectTables below)
+
+# ----------------------------------------------------------------------------
+# PROJECT-SPECIFIC VARIABLES
+# ----------------------------------------------------------------------------
+# Define variables that can be referenced with ${} syntax
+
+search_string_primary: "SALES_.*"
+target_region: "MIDWEST"
+
+# ----------------------------------------------------------------------------
+# PROJECT TABLES (Output Tables)
+# ----------------------------------------------------------------------------
+# These tables will be CREATED by this project in projectSchema.
+# They are different from source tables defined in config-RWD.yaml.
+
+projectTables:
+
+  # Cohort/population identifier
+  target_customers:
+    label: "Target customer population"
+    indexFields: ["customer_id"]
+
+  # Code/category identification
+  product_categories:
+    label: "Product categories for analysis"
+    dictionary:
+      electronics: "ELEC_.*"
+      furniture: "FURN_.*"
+    listIndex: "codes"
+    sourceField: "product_code"
+    complete: True
+
+  # Extracted records
+  sales_records:
+    label: "Sales transactions for target customers"
+    datefield: "order_date"
+    histStart: "${historyStart}"
+    histEnd: "${historyStop}"
+    indexFields: ["customer_id"]
+    retained_fields:
+      - "order_id"
+      - "product_code"
+      - "amount"
+      - "order_date"
+
+  # Summary/index table
+  customer_summary:
+    label: "Customer-level sales summary"
+    indexFields: ["customer_id"]
+    datefieldPrimary: "order_date"
+    code: "SALES"
+    retained_fields:
+      - "total_amount"
+      - "order_count"
+    sort_fields: ["order_date"]
+    max_gap: 365
+    histStart: "${historyStart}"
+    histEnd: "${historyStop}"
+
+  # Final analysis dataset
+  ads:
+    label: "Analytic Dataset - Sales Analysis"
+    indexFields: ["customer_id"]
+    datefield: "first_order_date"

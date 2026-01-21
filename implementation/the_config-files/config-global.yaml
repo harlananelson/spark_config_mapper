@@ -1,0 +1,70 @@
+# ============================================================================
+# GLOBAL CONFIGURATION
+# ============================================================================
+# Shared across all projects. Defines how schemas are processed.
+# Location: {basePath}/configuration/config-global.yaml
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# SCHEMA PROCESSING RULES
+# ----------------------------------------------------------------------------
+# Maps schema types to their processing parameters.
+# For each schema in a project's 000-config.yaml, the system finds the
+# matching entry here to determine how to process it.
+
+callFunProcessDataTables:
+
+  # Processing rule for RWD (Real World Data) schemas
+  RWDcallFunc:
+    data_type: 'RWDTables'           # Key in config-RWD.yaml containing table definitions
+    schema_type: 'RWDSchema'         # Matches key in 000-config.yaml schemas dict
+    type_key: 'rwd'                  # Attribute name for TableList (resource.rwd)
+    property_name: 'r'               # Attribute name for DB wrapper (resource.r)
+    updateDict: False                # If True, auto-discover tables from schema
+
+  # Processing rule for project output schemas
+  projectcallFunc:
+    data_type: 'projectTables'       # Key in 000-config.yaml containing output tables
+    schema_type: 'projectSchema'     # Matches key in 000-config.yaml schemas dict
+    type_key: 'proj'                 # Attribute name for TableList (resource.proj)
+    property_name: 'db'              # Attribute name for DB wrapper (resource.db)
+    updateDict: False
+
+  # Processing rule for OMOP schemas (if using OMOP data model)
+  OMOPcallFunc:
+    data_type: 'OMOPTables'          # Key in config-OMOP.yaml
+    schema_type: 'omopSchema'        # Matches key in 000-config.yaml schemas dict
+    type_key: 'omop'                 # Attribute name for TableList
+    property_name: 'o'               # Attribute name for DB wrapper
+    updateDict: False
+
+  # Processing rule for dictionary/reference schemas
+  dictcallFunc:
+    data_type: 'dictTables'          # Key in config containing dictionary tables
+    schema_type: 'dictrwdSchema'     # Matches key in 000-config.yaml schemas dict
+    type_key: 'dict'                 # Attribute name for TableList
+    property_name: 'd'               # Attribute name for DB wrapper
+    updateDict: False
+
+# ----------------------------------------------------------------------------
+# CONFIGURATION FILE LOCATIONS
+# ----------------------------------------------------------------------------
+# Paths to schema structure definition files (relative to basePath)
+
+config_table_locations:
+  config_RWD:
+    location: 'configuration/config-RWD.yaml'
+  config_OMOP:
+    location: 'configuration/config-OMOP.yaml'
+  config_IUH:
+    location: 'configuration/config-IUH.yaml'
+
+# ----------------------------------------------------------------------------
+# GLOBAL DEFAULTS
+# ----------------------------------------------------------------------------
+# Default values used when not specified in project config
+
+defaults:
+  gap: 90                            # Default therapy gap in days
+  serviceToFirstDx: 60               # Default baseline period in days
+  maxTrys: 5                         # Max flattening iterations

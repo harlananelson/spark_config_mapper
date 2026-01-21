@@ -1,0 +1,194 @@
+# ============================================================================
+# RWD (Real World Data) SCHEMA STRUCTURE DEFINITION
+# ============================================================================
+# Defines the structure of tables in RWD-formatted schemas.
+# This file does NOT change per project - it defines the data model.
+# Location: {basePath}/configuration/config-RWD.yaml
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# RWD TABLE DEFINITIONS
+# ----------------------------------------------------------------------------
+# Each entry defines how to access and process a source table.
+# These are READ from source schemas, not created by projects.
+
+RWDTables:
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONDITION TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  conditionSource:
+    source: condition                        # Physical table name in schema
+    datefield: datetimeCondition             # Primary date field
+    inputRegex:                              # Column filtering patterns
+      - ^personid
+      - ^encounterid
+      - ^conditionid
+      - ^conditioncode_standard_
+      - ^classification_standard_
+      - ^effectivedate
+      - ^tenant
+    insert:                                  # PySpark transformations
+      - "withColumn('datetimeCondition', F.coalesce(F.to_timestamp(F.col('effectivedate'))))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ENCOUNTER TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  encounterSource:
+    source: encounter
+    datefield: datetimeEnc
+    inputRegex:
+      - ^personid
+      - ^encounterid
+      - ^admitdate
+      - ^dischargedate
+      - ^type_standard_
+      - ^class_standard_
+      - ^tenant
+    insert:
+      - "withColumn('datetimeEnc', F.coalesce(F.to_timestamp(F.col('admitdate')), F.to_timestamp(F.col('dischargedate'))))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MEDICATION TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  medicationSource:
+    source: medication
+    datefield: datetimeMed
+    inputRegex:
+      - ^personid
+      - ^encounterid
+      - ^medicationid
+      - ^drugcode_standard_
+      - ^startdate
+      - ^stopdate
+      - ^dose
+      - ^route
+      - ^tenant
+    insert:
+      - "withColumn('datetimeMed', F.coalesce(F.to_timestamp(F.col('startdate'))))"
+
+  medAdminSource:
+    source: medicationadministration
+    datefield: datetimeMedAdmin
+    inputRegex:
+      - ^personid
+      - ^encounterid
+      - ^medicationadministrationid
+      - ^drugcode_standard_
+      - ^effectivedatetime
+      - ^tenant
+    insert:
+      - "withColumn('datetimeMedAdmin', F.to_timestamp(F.col('effectivedatetime')))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LAB TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  labSource:
+    source: lab
+    datefield: datetimeLab
+    inputRegex:
+      - ^personid
+      - ^encounterid
+      - ^labid
+      - ^labcode_standard_
+      - ^typedvalue_
+      - ^effectivedatetime
+      - ^tenant
+    insert:
+      - "withColumn('datetimeLab', F.to_timestamp(F.col('effectivedatetime')))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PROCEDURE TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  procedureSource:
+    source: procedure
+    datefield: datetimeProcedure
+    inputRegex:
+      - ^personid
+      - ^encounterid
+      - ^procedureid
+      - ^procedurecode_standard_
+      - ^performedperiod
+      - ^tenant
+    insert:
+      - "withColumn('datetimeProcedure', F.coalesce(F.to_timestamp(F.col('performedperiod_start'))))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEMOGRAPHICS TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  demoPreferred:
+    source: preferred_demographics
+    datefield: birthdate
+    inputRegex:
+      - ^personid
+      - ^gender
+      - ^race
+      - ^ethnicity
+      - ^birthdate
+      - ^deceaseddate
+      - ^state
+      - ^zip
+      - ^tenant
+
+  deathSource:
+    source: death
+    inputRegex:
+      - ^personid
+      - ^deceaseddate
+      - ^tenant
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VITAL SIGNS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  vitalSource:
+    source: vitalsigns
+    datefield: datetimeVital
+    inputRegex:
+      - ^personid
+      - ^encounterid
+      - ^vitalid
+      - ^code_standard_
+      - ^value
+      - ^effectivedatetime
+      - ^tenant
+    insert:
+      - "withColumn('datetimeVital', F.to_timestamp(F.col('effectivedatetime')))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DICTIONARY/REFERENCE TABLES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  condition_codes:
+    source: condition_code_reference
+    inputRegex:
+      - ^conditioncode_standard_id
+      - ^conditioncode_standard_codingsystemid
+      - ^conditioncode_standard_primarydisplay
+
+  medication_codes:
+    source: medication_code_reference
+    inputRegex:
+      - ^drugcode_standard_id
+      - ^drugcode_standard_codingsystemid
+      - ^drugcode_standard_primarydisplay
+
+  lab_codes:
+    source: lab_code_reference
+    inputRegex:
+      - ^labcode_standard_id
+      - ^labcode_standard_codingsystemid
+      - ^labcode_standard_primarydisplay
+
+  procedure_codes:
+    source: procedure_code_reference
+    inputRegex:
+      - ^procedurecode_standard_id
+      - ^procedurecode_standard_codingsystemid
+      - ^procedurecode_standard_primarydisplay

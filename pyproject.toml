@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spark-config-mapper"
+version = "0.1.0"
+description = "Generic configuration management for Spark projects with YAML-based config loading and dynamic schema mapping"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Harlan Nelson", email = "hnelson@example.com"}
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = [
+    "spark",
+    "pyspark",
+    "configuration",
+    "yaml",
+    "schema-mapping",
+    "data-engineering"
+]
+dependencies = [
+    "pyspark>=3.0.0",
+    "pyyaml>=5.0",
+    "pandas>=1.0.0",
+    "numpy>=1.18.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "black>=22.0",
+    "flake8>=4.0",
+    "mypy>=0.900",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/hnelson3/spark-config-mapper"
+"Bug Tracker" = "https://github.com/hnelson3/spark-config-mapper/issues"
+"Documentation" = "https://github.com/hnelson3/spark-config-mapper#readme"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["spark_config_mapper*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=spark_config_mapper"
