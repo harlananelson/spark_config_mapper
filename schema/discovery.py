@@ -108,13 +108,8 @@ def check_table_existence(table_path: str) -> bool:
         True
     """
     try:
-        # Parse schema and table from path
-        if '.' in table_path:
-            schema, table = table_path.rsplit('.', 1)
-            return spark.catalog.tableExists(schema, table)
-        else:
-            # Assume current database
-            return spark.catalog.tableExists(table_path)
+        # Use single-argument form for PySpark 2.4 compatibility
+        return spark.catalog.tableExists(table_path)
     except Exception as e:
         logger.debug(f"Table existence check failed for {table_path}: {e}")
         return False
