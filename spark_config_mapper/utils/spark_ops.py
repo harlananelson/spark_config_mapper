@@ -295,6 +295,24 @@ def use_last_value(col_names, windowSpec):
     return _apply
 
 
+def explode_columns(columns):
+    # type: (list) -> callable
+    """
+    Return a function that explodes array columns.
+
+    Parameters:
+        columns (list): List of array column names to explode.
+
+    Returns:
+        callable: A function that takes a DataFrame and returns it with exploded columns.
+    """
+    def inner(df):
+        for column in columns:
+            df = df.withColumn(column, F.explode_outer(column))
+        return df
+    return inner
+
+
 def create_empty_df(schema):
     # type: (StructType) -> DataFrame
     """
@@ -329,3 +347,21 @@ def getColumnMapping(df, pattern):
             new_name = col.replace('.', '_')
             mapping[col] = new_name
     return mapping
+
+
+def assignPropertyFromDictionary(prop, inDict, debug=False):
+    # type: (str, dict, bool) -> any
+    """
+    Safely get a property from a dictionary.
+
+    Parameters:
+        prop (str): The property/key name.
+        inDict (dict): The dictionary to search.
+        debug (bool): If True, prints debug info.
+
+    Returns:
+        The value if found, None otherwise.
+    """
+    if prop in inDict.keys():
+        return inDict[prop]
+    return None
