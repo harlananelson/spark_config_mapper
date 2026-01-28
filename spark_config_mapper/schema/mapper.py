@@ -53,16 +53,25 @@ class Item:
         self.schemaTag = schemaTag
         self.disease = disease
         self.project = project
-        
+
         # Get table configuration from dataTables
         table_config = dataTables.get(TBL, {})
-        
-        # Determine table location
-        if TBL in TBLLoc:
-            self.location = TBLLoc[TBL]
+
+        # Determine actual table name - use 'source' field if present, otherwise use TBL
+        # This allows config keys like 'mortalitySource' to map to actual table 'mortality'
+        source_name = table_config.get('source', TBL)
+        # Handle schema.table format in source
+        if '.' in str(source_name):
+            source_name = source_name.split('.', 1)[-1]
+        self.source = source_name
+
+        # Look up source_name in discovered tables (case-insensitive)
+        TBLLoc_lower = {k.lower(): v for k, v in TBLLoc.items()}
+        if source_name.lower() in TBLLoc_lower:
+            self.location = TBLLoc_lower[source_name.lower()]
             self.exists = True
         else:
-            self.location = f"{schema}.{TBL}"
+            self.location = f"{schema}.{source_name}"
             self.exists = False
             if debug:
                 logger.warning(f"Table {TBL} not found in schema {schema}")
