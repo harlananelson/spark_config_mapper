@@ -6,10 +6,10 @@ Maps logical schema names to physical Spark schemas and processes table metadata
 """
 
 from spark_config_mapper.header import (
-    re, spark, pprint, get_logger, DataFrame
+    re, spark, pprint, get_logger, DataFrame, F
 )
 from spark_config_mapper.schema.discovery import database_exists, getTableList
-from spark_config_mapper.utils.introspection import extractTableLocations, flat_schema
+from spark_config_mapper.utils.introspection import extractTableLocations, flat_schema, flatSchema
 
 logger = get_logger(__name__)
 
@@ -108,6 +108,74 @@ class Item:
         """Allow setting DataFrame directly."""
         self._df = value
     
+    def process(self):
+        """
+        Process this item's source table using config-driven directives.
+
+        Applies three steps in order:
+        1. inputRegex: Flatten nested schema via flatSchema(), match leaf field
+           paths against regex patterns, and select matched columns with
+           dot-notation aliases (e.g. 'a.b.c' → 'a_b_c').
+        2. insert: Apply a list of PySpark code strings (e.g.
+           "withColumn('dt', F.to_timestamp(...))" ) via eval(). This matches
+           the config-RWD.yaml format where insert is a list, not a dict.
+        3. colsRename: Rename columns via withColumnRenamed().
+
+        Mutates self.df in place. Returns None.
+        """
+        if not self.exists or self.df is None:
+            return
+
+        df = self.df
+
+        # Step 1: Flatten nested schema + inputRegex filter
+        if hasattr(self, 'inputRegex') and self.inputRegex:
+            try:
+                all_fields = flatSchema(df)
+                regex_list = self.inputRegex if isinstance(self.inputRegex, list) else [self.inputRegex]
+                selected = []
+                for field in all_fields:
+                    flat_name = field.replace('.', '_')
+                    if any(re.search(pat, flat_name, re.IGNORECASE) for pat in regex_list):
+                        selected.append(F.col(field).alias(flat_name))
+                if selected:
+                    df = df.select(selected)
+            except Exception as ex:
+                logger.warning(f"inputRegex flatten failed for {self.name}: {ex}")
+
+        # Step 2: Apply insert directives (list of PySpark code strings)
+        if hasattr(self, 'insert') and self.insert:
+            for insert_code in self.insert:
+                try:
+                    df = eval(f"df.{insert_code}")
+                except Exception as ex:
+                    logger.warning(f"insert failed for {self.name} '{insert_code}': {ex}")
+
+        # Step 3: Apply colsRename
+        if hasattr(self, 'colsRename') and self.colsRename:
+            for old_col, new_col in self.colsRename.items():
+                if old_col in df.columns:
+                    df = df.withColumnRenamed(old_col, new_col)
+
+        self.df = df
+
+    def flatten(self, **kwargs):
+        """
+        Flatten this item's DataFrame using flattenTable.
+
+        Parameters:
+            **kwargs: Passed to flattenTable (include_patterns, exclude_patterns,
+                      explode_array, error_on_multiple_arrays)
+
+        Returns:
+            DataFrame: Flattened DataFrame
+        """
+        from spark_config_mapper.utils.spark_ops import flattenTable
+        if self.df is None:
+            logger.error("No DataFrame available to flatten")
+            return None
+        return flattenTable(self.df, **kwargs)
+
     def properties(self):
         """Return dictionary of all item properties."""
         return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
@@ -237,7 +305,13 @@ def processDataTables(dataTables, schema, dataLoc, disease, schemaTag,
         )
         if item:
             TBLSource[TBL] = item
-    
+
+    # Auto-process all items (flatten, insert, rename)
+    for name, item in TBLSource.items():
+        if item.exists and item.df is not None:
+            item.process()
+            logger.debug(f"Processed {name}: {len(item.df.columns)} columns")
+
     return TableList(TBLSource)
 
 

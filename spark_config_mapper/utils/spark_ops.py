@@ -6,7 +6,7 @@ Compatible with Python 3.6+
 """
 
 from spark_config_mapper.header import (
-    spark, F, DataFrame, ArrayType, StructType, List, get_logger
+    re, spark, F, DataFrame, ArrayType, StructType, List, get_logger
 )
 
 logger = get_logger(__name__)
@@ -38,8 +38,14 @@ def writeTable(df, outTable, description="", partitionBy=None, mode="overwrite")
 
         if description:
             try:
-                spark.sql("ALTER TABLE {} SET TBLPROPERTIES ('comment' = '{}')".format(
-                    outTable, description))
+                # Escape single quotes in description to prevent SQL injection
+                safe_description = description.replace("'", "''")
+                # Validate table name is a legal identifier
+                if not re.match(r'^[a-zA-Z_]\w*(\.[a-zA-Z_]\w*)*$', outTable):
+                    logger.warning("Invalid table name format: {}".format(outTable))
+                else:
+                    spark.sql("ALTER TABLE {} SET TBLPROPERTIES ('comment' = '{}')".format(
+                        outTable, safe_description))
             except Exception:
                 pass  # Description setting is optional
 
@@ -95,7 +101,6 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
     from spark_config_mapper.utils.introspection import (
         flatten_schema, get_array_fields
     )
-    import re
 
     # Identify arrays in schema
     array_fields = get_array_fields(df.schema)
@@ -141,8 +146,14 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
                 "Only flattening struct columns.".format(array_fields))
 
     # Get flattened column paths
-    # Use include_arrays=True to stop at unexploded arrays
-    flat_cols = flatten_schema(result_df.schema, include_arrays=True)
+    # When arrays were exploded (or no arrays exist), include_arrays=True stops
+    # at remaining unexploded arrays. When arrays were skipped (multi-array case
+    # without explode_array), use include_arrays=False to recurse into array
+    # element structs and still flatten struct subfields within arrays.
+    skipped_arrays = (num_arrays > 1 and not explode_array
+                      and not error_on_multiple_arrays)
+    flat_cols = flatten_schema(result_df.schema,
+                               include_arrays=not skipped_arrays)
 
     # Apply include patterns (if specified)
     if include_patterns:
@@ -339,7 +350,6 @@ def getColumnMapping(df, pattern):
     Returns:
         dict: Mapping of original names to new names
     """
-    import re
     compiled = re.compile(pattern, re.IGNORECASE)
     mapping = {}
     for col in df.columns:

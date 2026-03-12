@@ -126,10 +126,10 @@ def get_array_fields(schema, prefix=None):
 
         if isinstance(dtype, ArrayType):
             arrays.append(name)
-            # Also check for nested arrays
-            element_type = dtype.elementType
-            if isinstance(element_type, StructType):
-                arrays += get_array_fields(element_type, prefix=name)
+            # Do NOT recurse into array element types — nested arrays inside
+            # array elements should not be counted as separate top-level arrays.
+            # Over-counting here triggers the multi-array branch in flattenTable(),
+            # which skips explosion AND drops struct subfields.
         elif isinstance(dtype, StructType):
             arrays += get_array_fields(dtype, prefix=name)
 
