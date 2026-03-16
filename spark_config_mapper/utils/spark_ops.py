@@ -152,11 +152,15 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
     flat_cols = flatten_schema(result_df.schema, include_arrays=True)
 
     # Apply include patterns (if specified)
+    # Patterns use underscore notation (e.g., '^conditioncode_standard_')
+    # but flat_cols uses dot notation (e.g., 'conditioncode.standard.id').
+    # Match against the underscore-replaced name for compatibility.
     if include_patterns:
         filtered_cols = []
         for col in flat_cols:
+            flat_name = col.replace('.', '_')
             for pattern in include_patterns:
-                if re.search(pattern, col, re.IGNORECASE):
+                if re.search(pattern, flat_name, re.IGNORECASE):
                     filtered_cols.append(col)
                     break
         flat_cols = filtered_cols
