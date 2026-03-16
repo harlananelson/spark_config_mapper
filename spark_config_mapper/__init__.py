@@ -57,7 +57,11 @@ from spark_config_mapper.header import (
 from spark_config_mapper.config import (
     read_config,
     recursive_template,
-    merge_configs
+    merge_configs,
+    validate_table_config,
+    validate_tables_config,
+    validate_required_keys,
+    ConfigValidationError
 )
 
 # Schema module exports
@@ -71,7 +75,14 @@ from spark_config_mapper.schema import (
     Item,
     TableList,
     processDataTables,
-    update_dictionary
+    update_dictionary,
+    ItemLoadError,
+    ItemProcessError,
+    ITEM_UNLOADED,
+    ITEM_LOADED,
+    ITEM_PROCESSED,
+    ITEM_FAILED,
+    ITEM_NOT_FOUND,
 )
 
 # Utils module exports
@@ -134,6 +145,10 @@ __all__ = [
     'read_config',
     'recursive_template',
     'merge_configs',
+    'validate_table_config',
+    'validate_tables_config',
+    'validate_required_keys',
+    'ConfigValidationError',
     # Schema discovery
     'database_exists',
     'getTableList',
@@ -146,6 +161,13 @@ __all__ = [
     'TableList',
     'processDataTables',
     'update_dictionary',
+    'ItemLoadError',
+    'ItemProcessError',
+    'ITEM_UNLOADED',
+    'ITEM_LOADED',
+    'ITEM_PROCESSED',
+    'ITEM_FAILED',
+    'ITEM_NOT_FOUND',
     # Utils - Introspection
     'coalesce',
     'flatten_schema',

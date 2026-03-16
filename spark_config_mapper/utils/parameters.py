@@ -5,6 +5,7 @@ Function parameter handling utilities.
 Provides tools for mapping configuration dictionaries to function parameters.
 """
 
+import warnings
 from spark_config_mapper.header import (
     inspect, OrderedDict, pprint, get_logger
 )
@@ -100,7 +101,12 @@ def get_parameters(config_dict: dict, function, config_dictt: dict = None,
 
 def getParameters(config_dict: dict, function, config_dictt: dict = None,
                   debug: bool = False) -> OrderedDict:
-    """Alias for get_parameters for backward compatibility."""
+    """Deprecated alias for get_parameters. Use get_parameters() instead."""
+    warnings.warn(
+        "getParameters() is deprecated, use get_parameters() instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return get_parameters(config_dict, function, config_dictt, debug)
 
 

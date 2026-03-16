@@ -17,7 +17,14 @@ from spark_config_mapper.schema.mapper import (
     Item,
     TableList,
     processDataTables,
-    update_dictionary
+    update_dictionary,
+    ItemLoadError,
+    ItemProcessError,
+    ITEM_UNLOADED,
+    ITEM_LOADED,
+    ITEM_PROCESSED,
+    ITEM_FAILED,
+    ITEM_NOT_FOUND,
 )
 
 __all__ = [
@@ -32,5 +39,13 @@ __all__ = [
     'Item',
     'TableList',
     'processDataTables',
-    'update_dictionary'
+    'update_dictionary',
+    # Lifecycle status
+    'ItemLoadError',
+    'ItemProcessError',
+    'ITEM_UNLOADED',
+    'ITEM_LOADED',
+    'ITEM_PROCESSED',
+    'ITEM_FAILED',
+    'ITEM_NOT_FOUND',
 ]
