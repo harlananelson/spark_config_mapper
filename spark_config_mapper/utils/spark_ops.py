@@ -146,14 +146,10 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
                 "Only flattening struct columns.".format(array_fields))
 
     # Get flattened column paths
-    # When arrays were exploded (or no arrays exist), include_arrays=True stops
-    # at remaining unexploded arrays. When arrays were skipped (multi-array case
-    # without explode_array), use include_arrays=False to recurse into array
-    # element structs and still flatten struct subfields within arrays.
-    skipped_arrays = (num_arrays > 1 and not explode_array
-                      and not error_on_multiple_arrays)
-    flat_cols = flatten_schema(result_df.schema,
-                               include_arrays=not skipped_arrays)
+    # Always use include_arrays=True so we stop at array boundaries.
+    # Array columns cannot be selected via dot notation without exploding first.
+    # Struct fields (even nested inside struct parents) are selectable via dot notation.
+    flat_cols = flatten_schema(result_df.schema, include_arrays=True)
 
     # Apply include patterns (if specified)
     if include_patterns:
