@@ -7,6 +7,7 @@ Provides tools for schema flattening, table location extraction, and field analy
 Compatible with Python 3.6+
 """
 
+import warnings
 from spark_config_mapper.header import (
     re, spark, DataFrame, List, ArrayType, StructType, get_logger
 )
@@ -191,8 +192,14 @@ def flatSchema(in_table, prefix=None):
     """
     Alias for flat_schema for backwards compatibility.
 
-    Deprecated: Use flat_schema() instead.
+    .. deprecated::
+        Use ``flat_schema()`` instead. ``flatSchema`` will be removed in v1.0.
     """
+    warnings.warn(
+        "flatSchema() is deprecated, use flat_schema() instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return flatten_schema(in_table.schema, prefix)
 
 
