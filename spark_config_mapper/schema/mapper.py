@@ -179,11 +179,16 @@ class Item:
                 )
             except Exception as ex:
                 msg = f"inputRegex flatten failed for {self.name}: {ex}"
+                self.process_error = msg
                 if strict:
                     self.status = ITEM_FAILED
-                    self.process_error = msg
                     raise ItemProcessError(msg) from ex
                 logger.warning(msg)
+                # Mark as failed so callers know flattening didn't happen.
+                # df is still the raw table — do NOT mark as ITEM_PROCESSED.
+                self.status = ITEM_FAILED
+                self.df = df
+                return
 
         # Step 2: Apply insert directives (list of PySpark code strings)
         if hasattr(self, 'insert') and self.insert:
