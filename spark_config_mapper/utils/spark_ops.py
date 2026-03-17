@@ -150,7 +150,7 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
     # Array columns cannot be selected via dot notation without exploding first.
     # Struct fields (even nested inside struct parents) are selectable via dot notation.
     flat_cols = flatten_schema(result_df.schema, include_arrays=True)
-    print(f"[flattenTable] flatten_schema returned {len(flat_cols)} paths, first 5: {flat_cols[:5]}")
+    logger.debug("flatten_schema returned {} paths".format(len(flat_cols)))
 
     # Apply include patterns (if specified)
     # Patterns use underscore notation (e.g., '^conditioncode_standard_')
@@ -164,7 +164,7 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
                 if re.search(pattern, flat_name, re.IGNORECASE):
                     filtered_cols.append(col)
                     break
-        print(f"[flattenTable] regex filtered: {len(flat_cols)} -> {len(filtered_cols)}, first 5: {filtered_cols[:5]}")
+        logger.debug("regex filtered: {} -> {} cols".format(len(flat_cols), len(filtered_cols)))
         flat_cols = filtered_cols
 
     # Apply exclude patterns
