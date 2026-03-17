@@ -168,7 +168,13 @@ class Item:
         # Step 1: Flatten nested schema + inputRegex filter
         # Uses flattenTable() which handles arrays (explode) AND structs (flatten),
         # then selects columns matching the regex patterns.
-        if hasattr(self, 'inputRegex') and self.inputRegex:
+        has_regex = hasattr(self, 'inputRegex') and self.inputRegex
+        logger.info(
+            f"process({self.name}): has_inputRegex={has_regex}, "
+            f"pre_columns={len(df.columns)}, "
+            f"inputRegex={getattr(self, 'inputRegex', None)}"
+        )
+        if has_regex:
             try:
                 from spark_config_mapper.utils.spark_ops import flattenTable
                 regex_list = self.inputRegex if isinstance(self.inputRegex, list) else [self.inputRegex]
@@ -176,6 +182,10 @@ class Item:
                     df,
                     include_patterns=regex_list,
                     error_on_multiple_arrays=False
+                )
+                logger.info(
+                    f"process({self.name}): post_flatten columns={len(df.columns)} "
+                    f"names={df.columns[:5]}"
                 )
             except Exception as ex:
                 msg = f"inputRegex flatten failed for {self.name}: {ex}"
