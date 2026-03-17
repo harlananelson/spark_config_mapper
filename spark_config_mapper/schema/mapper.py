@@ -169,12 +169,7 @@ class Item:
         # Uses flattenTable() which handles arrays (explode) AND structs (flatten),
         # then selects columns matching the regex patterns.
         has_regex = hasattr(self, 'inputRegex') and self.inputRegex
-        print(
-            f"[Item.process] {self.name}: has_inputRegex={has_regex}, "
-            f"pre_columns={len(df.columns)}, "
-            f"inputRegex_type={type(getattr(self, 'inputRegex', None)).__name__}, "
-            f"inputRegex={getattr(self, 'inputRegex', None)}"
-        )
+        logger.debug(f"process({self.name}): has_inputRegex={has_regex}, pre_columns={len(df.columns)}")
         if has_regex:
             try:
                 from spark_config_mapper.utils.spark_ops import flattenTable
@@ -184,10 +179,7 @@ class Item:
                     include_patterns=regex_list,
                     error_on_multiple_arrays=False
                 )
-                print(
-                    f"[Item.process] {self.name}: post_flatten columns={len(df.columns)} "
-                    f"names={df.columns[:5]}"
-                )
+                logger.debug(f"process({self.name}): post_flatten columns={len(df.columns)}")
             except Exception as ex:
                 msg = f"inputRegex flatten failed for {self.name}: {ex}"
                 self.process_error = msg
