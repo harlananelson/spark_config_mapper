@@ -169,9 +169,10 @@ class Item:
         # Uses flattenTable() which handles arrays (explode) AND structs (flatten),
         # then selects columns matching the regex patterns.
         has_regex = hasattr(self, 'inputRegex') and self.inputRegex
-        logger.info(
-            f"process({self.name}): has_inputRegex={has_regex}, "
+        print(
+            f"[Item.process] {self.name}: has_inputRegex={has_regex}, "
             f"pre_columns={len(df.columns)}, "
+            f"inputRegex_type={type(getattr(self, 'inputRegex', None)).__name__}, "
             f"inputRegex={getattr(self, 'inputRegex', None)}"
         )
         if has_regex:
@@ -183,8 +184,8 @@ class Item:
                     include_patterns=regex_list,
                     error_on_multiple_arrays=False
                 )
-                logger.info(
-                    f"process({self.name}): post_flatten columns={len(df.columns)} "
+                print(
+                    f"[Item.process] {self.name}: post_flatten columns={len(df.columns)} "
                     f"names={df.columns[:5]}"
                 )
             except Exception as ex:
