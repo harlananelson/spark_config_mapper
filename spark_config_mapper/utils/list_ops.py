@@ -11,40 +11,73 @@ from pyspark.sql.types import StringType
 logger = get_logger(__name__)
 
 
-def noColColide(masterColumns: List[str], colideColumns: List[str], 
-                index: List[str], masterList: List[str] = None) -> List[str]:
+def _to_col_list(obj):
+    """Convert various column-like inputs to a plain list of strings.
+
+    Handles: list, tuple, DataFrame (has .columns), Item/ExtractItem (has .df.columns
+    or .columns attribute), or None.
+    """
+    if obj is None:
+        return []
+    if isinstance(obj, (list, tuple)):
+        return list(obj)
+    # DataFrame — has .columns as a list
+    if hasattr(obj, 'columns') and isinstance(obj.columns, list):
+        return list(obj.columns)
+    # Item/ExtractItem — has .df with .columns
+    if hasattr(obj, 'df') and obj.df is not None and hasattr(obj.df, 'columns'):
+        return list(obj.df.columns)
+    # Fallback: try to iterate
+    try:
+        return list(obj)
+    except TypeError:
+        logger.warning(f"noColColide: cannot convert {type(obj).__name__} to column list")
+        return []
+
+
+def noColColide(masterColumns, colideColumns, index, masterList=None):
+    # type: (object, object, object, object) -> List[str]
     """
     Select columns from master list that don't collide with another list.
-    
+
     Used when joining tables to avoid duplicate column names. Index columns
     are always included as they're used for the join.
-    
+
+    Accepts lists, tuples, DataFrames, Item objects, or anything with a
+    .columns attribute. All inputs are normalized to plain lists of strings.
+
     Parameters:
-        masterColumns (List[str]): Columns from the primary table
-        colideColumns (List[str]): Columns that could cause collisions
-        index (List[str]): Index columns (always included)
-        masterList (List[str], optional): Restrict to only these columns
-    
+        masterColumns: Columns from the primary table (list, DataFrame, or Item)
+        colideColumns: Columns that could cause collisions
+        index: Index columns (always included)
+        masterList: Restrict to only these columns (optional)
+
     Returns:
         List[str]: Columns that won't collide, including index columns
-    
+
     Example:
         >>> master = ['personid', 'name', 'age', 'date']
-        >>> other = ['name', 'value']  
+        >>> other = ['name', 'value']
         >>> noColColide(master, other, ['personid'])
         ['personid', 'age', 'date']  # 'name' excluded due to collision
     """
+    masterColumns = _to_col_list(masterColumns)
+    colideColumns = _to_col_list(colideColumns)
+    index = _to_col_list(index)
+
     if masterList is None:
         masterList = masterColumns
-    
-    result = index.copy()
+    else:
+        masterList = _to_col_list(masterList)
+
+    result = list(index)  # always a fresh copy
     for item in masterColumns:
-        if (item not in result and 
-            item in masterList and 
-            item not in colideColumns and 
+        if (item not in result and
+            item in masterList and
+            item not in colideColumns and
             item is not None):
             result.append(item)
-    
+
     return result
 
 
