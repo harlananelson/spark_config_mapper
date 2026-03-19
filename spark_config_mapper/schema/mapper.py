@@ -97,11 +97,12 @@ class Item:
             self.location = f"{schema}.{source_name}"
             self.exists = False
             self.status = ITEM_NOT_FOUND
-            # Always warn about missing tables so users know what's happening
+            # Missing tables are expected for extract outputs that haven't been
+            # written yet. Log at debug level, not warning.
             if source_name != TBL:
-                logger.warning(f"Table '{source_name}' (config: {TBL}) not found in schema {schema}")
+                logger.debug(f"Table '{source_name}' (config: {TBL}) not found in schema {schema}")
             else:
-                logger.warning(f"Table '{TBL}' not found in schema {schema}")
+                logger.debug(f"Table '{TBL}' not found in schema {schema}")
 
         # Set up export paths
         self.csv = f"{dataLoc}{TBL}_{disease}_{schemaTag}.csv"
