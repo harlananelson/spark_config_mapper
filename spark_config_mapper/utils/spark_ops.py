@@ -141,7 +141,7 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
                 "or set error_on_multiple_arrays=False to skip arrays and flatten structs only.".format(
                     num_arrays, array_fields))
         else:
-            logger.warning(
+            logger.debug(
                 "Multiple arrays found ({}), skipping array explosion. "
                 "Only flattening struct columns.".format(array_fields))
 
