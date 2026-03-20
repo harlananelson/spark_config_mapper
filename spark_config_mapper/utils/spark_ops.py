@@ -102,60 +102,16 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
         flatten_schema, get_array_fields
     )
 
-    # Identify arrays in schema
+    # Step 1: Get all leaf paths from schema (cheap — no data touched)
+    # include_arrays=True stops at array boundaries, returning array names as leaves.
+    # Struct fields are recursed and returned as dot-notation paths.
+    all_paths = flatten_schema(df.schema, include_arrays=True)
     array_fields = get_array_fields(df.schema)
-    num_arrays = len(array_fields)
+    logger.debug("Schema has {} paths, {} arrays".format(len(all_paths), len(array_fields)))
 
-    logger.debug("Found {} array fields: {}".format(num_arrays, array_fields))
-
-    # Handle array explosion
-    result_df = df
-
-    if num_arrays == 0:
-        # No arrays - safe to flatten everything
-        logger.debug("No arrays found, flattening structs only")
-
-    elif num_arrays == 1:
-        # Single array - safe to explode
-        array_col = array_fields[0]
-        logger.info("Exploding single array column: {}".format(array_col))
-        result_df = result_df.withColumn(array_col, F.explode_outer(F.col(array_col)))
-
-    else:
-        # Multiple arrays - need explicit handling
-        if explode_array:
-            # User specified which array to explode
-            if explode_array not in array_fields:
-                raise ValueError(
-                    "explode_array='{}' not found in array fields: {}".format(
-                        explode_array, array_fields))
-            logger.info("Exploding specified array: {} (other arrays: {})".format(
-                explode_array, [a for a in array_fields if a != explode_array]))
-            result_df = result_df.withColumn(
-                explode_array, F.explode_outer(F.col(explode_array)))
-        elif error_on_multiple_arrays:
-            raise ValueError(
-                "DataFrame has {} arrays: {}. "
-                "Exploding multiple arrays creates cartesian product. "
-                "Either specify explode_array='column_name' to explode one array, "
-                "or set error_on_multiple_arrays=False to skip arrays and flatten structs only.".format(
-                    num_arrays, array_fields))
-        else:
-            logger.debug(
-                "Multiple arrays found ({}), skipping array explosion. "
-                "Only flattening struct columns.".format(array_fields))
-
-    # Get flattened column paths
-    # Always use include_arrays=True so we stop at array boundaries.
-    # Array columns cannot be selected via dot notation without exploding first.
-    # Struct fields (even nested inside struct parents) are selectable via dot notation.
-    flat_cols = flatten_schema(result_df.schema, include_arrays=True)
-    logger.debug("flatten_schema returned {} paths".format(len(flat_cols)))
-
-    # Apply include patterns (if specified)
-    # Patterns use underscore notation (e.g., '^conditioncode_standard_')
-    # but flat_cols uses dot notation (e.g., 'conditioncode.standard.id').
-    # Match against the underscore-replaced name for compatibility.
+    # Step 2: Apply regex filter FIRST — determine which columns we actually want
+    # This happens before any flattening/explosion, so we never touch unwanted columns.
+    flat_cols = all_paths
     if include_patterns:
         filtered_cols = []
         for col in flat_cols:
@@ -167,16 +123,70 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
         logger.debug("regex filtered: {} -> {} cols".format(len(flat_cols), len(filtered_cols)))
         flat_cols = filtered_cols
 
-    # Apply exclude patterns
     if exclude_patterns:
         for pattern in exclude_patterns:
             flat_cols = [c for c in flat_cols if pattern.lower() not in c.lower()]
 
     if not flat_cols:
         logger.warning("No columns remain after filtering")
-        return result_df
+        return df
 
-    # Build select expressions
+    # Step 3: Check if any SELECTED columns are arrays — only then deal with explosion
+    selected_arrays = [c for c in flat_cols if c in array_fields]
+    result_df = df
+
+    if selected_arrays:
+        if len(selected_arrays) == 1 and not explode_array:
+            # Single selected array — safe to auto-explode
+            array_col = selected_arrays[0]
+            logger.info("Exploding selected array: {}".format(array_col))
+            result_df = result_df.withColumn(array_col, F.explode_outer(F.col(array_col)))
+            # Re-run flatten_schema on the exploded df to get inner paths
+            flat_cols_new = flatten_schema(result_df.schema, include_arrays=True)
+            # Re-apply regex to pick up newly available inner fields
+            if include_patterns:
+                filtered_new = []
+                for col in flat_cols_new:
+                    flat_name = col.replace('.', '_')
+                    for pattern in include_patterns:
+                        if re.search(pattern, flat_name, re.IGNORECASE):
+                            filtered_new.append(col)
+                            break
+                flat_cols = filtered_new
+            else:
+                flat_cols = flat_cols_new
+        elif explode_array:
+            if explode_array not in array_fields:
+                raise ValueError(
+                    "explode_array='{}' not found in array fields: {}".format(
+                        explode_array, array_fields))
+            result_df = result_df.withColumn(
+                explode_array, F.explode_outer(F.col(explode_array)))
+            flat_cols_new = flatten_schema(result_df.schema, include_arrays=True)
+            if include_patterns:
+                filtered_new = []
+                for col in flat_cols_new:
+                    flat_name = col.replace('.', '_')
+                    for pattern in include_patterns:
+                        if re.search(pattern, flat_name, re.IGNORECASE):
+                            filtered_new.append(col)
+                            break
+                flat_cols = filtered_new
+            else:
+                flat_cols = flat_cols_new
+        elif error_on_multiple_arrays:
+            raise ValueError(
+                "Selected columns include {} arrays: {}. "
+                "Specify explode_array to pick one.".format(
+                    len(selected_arrays), selected_arrays))
+        else:
+            # Multiple selected arrays — drop them, keep only struct columns
+            logger.debug(
+                "Dropping {} selected array columns (can't explode multiple): {}".format(
+                    len(selected_arrays), selected_arrays))
+            flat_cols = [c for c in flat_cols if c not in selected_arrays]
+
+    # Step 4: Build select expressions — only touches the columns we actually want
     select_cols = []
     for col_path in flat_cols:
         new_name = col_path.replace('.', '_')
