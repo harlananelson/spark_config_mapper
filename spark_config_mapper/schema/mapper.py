@@ -265,12 +265,15 @@ class TableList:
         return key in self._items
 
     def keys(self):
+        """Return a dict_keys view of the table names in this TableList."""
         return self._items.keys()
 
     def values(self):
+        """Return a dict_values view of the Item instances in this TableList."""
         return self._items.values()
 
     def items(self):
+        """Return a dict_items view of ``(name, Item)`` pairs in this TableList."""
         return self._items.items()
 
     def __iter__(self):
