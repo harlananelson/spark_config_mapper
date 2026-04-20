@@ -122,7 +122,13 @@ class Item:
 
     @property
     def df(self):
-        """Lazy-load DataFrame when first accessed."""
+        """Lazy-load DataFrame when first accessed.
+
+        Raises ItemLoadError if a prior load attempt failed, so callers
+        get the failure at .df access rather than three frames later as
+        an AttributeError on NoneType. Uninstantiated items (self.exists
+        is False) still return None so callers can test for presence.
+        """
         if self._df is None and self.exists:
             try:
                 self._df = spark.table(self.location)
@@ -132,6 +138,12 @@ class Item:
                 self.status = ITEM_FAILED
                 self.load_error = str(e)
                 logger.error(f"Failed to load table {self.location}: {e}")
+        if self.status == ITEM_FAILED and self._df is None:
+            raise ItemLoadError(
+                "Item '{}' failed to load from {}: {}".format(
+                    getattr(self, 'name', '?'),
+                    getattr(self, 'location', '?'),
+                    self.load_error or 'unknown error'))
         return self._df
 
     @df.setter
