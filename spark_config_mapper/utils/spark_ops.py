@@ -186,6 +186,24 @@ def flattenTable(df, include_patterns=None, exclude_patterns=None,
                     len(selected_arrays), selected_arrays))
             flat_cols = [c for c in flat_cols if c not in selected_arrays]
 
+    # Step 3b: After explode, the re-flattened schema may still contain
+    # nested arrays (e.g., medications[].dose[]). Dot-path select on a
+    # path that traverses an unexploded array fails silently under lenient
+    # mode with "cannot resolve column". Detect and fail loud.
+    post_explode_arrays = get_array_fields(result_df.schema)
+    selected_post = [c for c in flat_cols if c in post_explode_arrays]
+    if selected_post:
+        msg = (
+            "flattenTable: after explode, selected columns still contain "
+            "array fields: {}. Dot-path select will fail. Specify "
+            "explode_array= for one of these, or add an outer explode_array "
+            "to restrict the selection.".format(selected_post)
+        )
+        if error_on_multiple_arrays:
+            raise ValueError(msg)
+        logger.warning(msg + " — dropping these array columns to recover")
+        flat_cols = [c for c in flat_cols if c not in selected_post]
+
     # Step 4: Build select expressions — only touches the columns we actually want
     select_cols = []
     for col_path in flat_cols:
