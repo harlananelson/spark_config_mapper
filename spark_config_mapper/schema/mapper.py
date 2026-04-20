@@ -136,9 +136,14 @@ class Item:
 
     @df.setter
     def df(self, value):
-        """Allow setting DataFrame directly."""
+        """Allow setting DataFrame directly.
+
+        Does NOT clobber ITEM_FAILED — callers that set ITEM_FAILED before
+        re-assigning self.df (e.g. the flatten-failure branch in process())
+        rely on the failure status surviving the assignment.
+        """
         self._df = value
-        if value is not None and self.status not in (ITEM_PROCESSED,):
+        if value is not None and self.status not in (ITEM_PROCESSED, ITEM_FAILED):
             self.status = ITEM_LOADED
 
     def process(self, strict=False):
