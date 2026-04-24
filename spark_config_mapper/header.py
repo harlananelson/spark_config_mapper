@@ -71,8 +71,20 @@ def get_or_create_spark_session():
             os.environ['HADOOP_CONF_DIR'] = hadoop_conf
             logger.debug(f"Set HADOOP_CONF_DIR={hadoop_conf}")
 
-    # Build session with Hive support for metastore access
+    # Executor Python: some HDL cluster images preset PYSPARK_PYTHON to a
+    # hardcoded path like `/opt/conda/bin/python` that doesn't exist on the
+    # worker nodes, causing `Cannot run program ...: No such file or
+    # directory` at task time. Request a PATH-resolved `python3` via SparkConf
+    # so the builder doesn't inherit the broken default. NOTE: if a
+    # SparkSession already exists (kernel pre-created it), `getOrCreate()`
+    # returns that session and these configs are silently ignored. In that
+    # case the fix has to be upstream (kernel.json env block or
+    # cluster-level spark-defaults.conf).
+    executor_python = os.environ.get("PYSPARK_PYTHON_OVERRIDE", "python3")
+
     builder = (SparkSession.builder
+        .config("spark.pyspark.python", executor_python)
+        .config("spark.executorEnv.PYSPARK_PYTHON", executor_python)
         .config("spark.sql.catalogImplementation", "hive")
         .config("spark.sql.legacy.allowCreatingManagedTableUsingNonemptyLocation", "true")
         .config("spark.sql.autoBroadcastJoinThreshold", 200 * 1024 * 1024)  # 200MB
@@ -86,6 +98,19 @@ def get_or_create_spark_session():
     )
 
     spark = builder.getOrCreate()
+
+    # Diagnostic: surface what the live session actually has for
+    # executor Python, so misconfiguration doesn't silently fail at
+    # task time three frames deep.
+    live_python = spark.conf.get("spark.pyspark.python", None)
+    if live_python and live_python != executor_python:
+        logger.warning(
+            "SparkSession already existed; spark.pyspark.python=%r "
+            "(builder requested %r). If this path does not exist on "
+            "executor nodes, tasks will fail with 'Cannot run program'. "
+            "Fix via kernel.json env block or cluster spark-defaults.conf.",
+            live_python, executor_python,
+        )
 
     return spark
 
