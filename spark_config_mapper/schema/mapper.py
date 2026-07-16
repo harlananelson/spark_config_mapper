@@ -23,6 +23,31 @@ ITEM_FAILED = 'FAILED'
 ITEM_NOT_FOUND = 'NOT_FOUND'
 
 
+def _is_table_not_found(exc):
+    """True if a load exception means the table/view simply does not exist.
+
+    A genuinely-absent table is NOT_FOUND (normal, non-fatal), NOT FAILED
+    (a real processing bug). Discovery (TBLLoc) can report a table as present
+    when the catalog lists it but the backing table/view is gone, so the
+    actual spark.table() raises "Table or view not found" at load time -- that
+    must still classify as NOT_FOUND, not FAILED, or strict pipeline_setup()
+    aborts on a table the project legitimately doesn't have (e.g. the licensed
+    `mortality` table only exists in the SCD frozen schema).
+
+    Matches on message text rather than exception class so it works across
+    Spark 2.4.x (HDL) and 3.x without importing version-specific exceptions.
+    """
+    msg = str(exc).lower()
+    return (
+        'table or view not found' in msg
+        or 'not found in database' in msg
+        or 'nosuchtable' in msg                        # NoSuchTableException
+        or 'nosuchdatabase' in msg                     # NoSuchDatabaseException
+        or ('database' in msg and 'not found' in msg)  # "Database 'x' not found" (whole schema absent)
+        or 'path does not exist' in msg                # underlying storage gone
+    )
+
+
 class ItemLoadError(Exception):
     """Raised when an Item's DataFrame cannot be loaded."""
     pass
@@ -135,9 +160,21 @@ class Item:
                 self.status = ITEM_LOADED
                 self.load_error = None
             except Exception as e:
-                self.status = ITEM_FAILED
-                self.load_error = str(e)
-                logger.error(f"Failed to load table {self.location}: {e}")
+                if _is_table_not_found(e):
+                    # The catalog claimed this table exists (discovery set
+                    # exists=True) but the load says it doesn't. Reclassify as
+                    # NOT_FOUND -- normal and non-fatal -- so strict
+                    # pipeline_setup() notes-and-skips it instead of aborting.
+                    self.status = ITEM_NOT_FOUND
+                    self.exists = False
+                    self.load_error = None
+                    logger.debug(
+                        f"Table {self.location} reported by discovery but not "
+                        f"found at load time -- marking NOT_FOUND: {e}")
+                else:
+                    self.status = ITEM_FAILED
+                    self.load_error = str(e)
+                    logger.error(f"Failed to load table {self.location}: {e}")
         if self.status == ITEM_FAILED and self._df is None:
             raise ItemLoadError(
                 "Item '{}' failed to load from {}: {}".format(
