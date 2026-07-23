@@ -35,10 +35,17 @@ def _to_col_list(obj):
         return []
 
 
-def noColColide(masterColumns, colideColumns, index, masterList=None):
-    # type: (object, object, object, object) -> List[str]
+# Collision policies for noColColide (default keeps historical behavior).
+ON_COLLISION_EXCLUDE = 'exclude'  # drop non-key clashes from master (legacy)
+ON_COLLISION_RAISE = 'raise'      # fail loud — feature-attach / panel joins
+_ON_COLLISION_MODES = (ON_COLLISION_EXCLUDE, ON_COLLISION_RAISE)
+
+
+def noColColide(masterColumns, colideColumns, index, masterList=None,
+                on_collision=ON_COLLISION_EXCLUDE):
     """
-    Select columns from master list that don't collide with another list.
+    Select columns from master that are safe to keep when joining to another
+    table (avoid duplicate column names).
 
     Used when joining tables to avoid duplicate column names. Index columns
     are always included as they're used for the join.
@@ -48,18 +55,38 @@ def noColColide(masterColumns, colideColumns, index, masterList=None):
 
     Parameters:
         masterColumns: Columns from the primary table (list, DataFrame, or Item)
-        colideColumns: Columns that could cause collisions
-        index: Index columns (always included)
+        colideColumns: Columns that could cause collisions (the other side)
+        index: Index / join-key columns (always included; may appear on both
+            sides)
         masterList: Restrict to only these columns (optional)
+        on_collision (str): Policy when a **non-key** master column name also
+            appears in ``colideColumns``:
+
+            * ``'exclude'`` (default) — omit the colliding name from the
+              result (historical behavior; safe for general extract joins
+              where one copy of a shared field is enough).
+            * ``'raise'`` — raise ``ValueError`` listing the colliding
+              names. Use for person-feature **attach** / panel assembly,
+              where silently dropping a feature's ``index_*`` / ``entries_*``
+              column is almost always a bug (e.g. two ``write_index_table``
+              products with the same ``code``).
 
     Returns:
-        List[str]: Columns that won't collide, including index columns
+        List[str]: Columns to select from the master side, including index
+
+    Raises:
+        ValueError: If ``on_collision='raise'`` and non-key name clashes exist,
+            or if ``on_collision`` is not a known mode.
 
     Example:
         >>> master = ['personid', 'name', 'age', 'date']
         >>> other = ['name', 'value']
         >>> noColColide(master, other, ['personid'])
         ['personid', 'age', 'date']  # 'name' excluded due to collision
+        >>> noColColide(master, other, ['personid'], on_collision='raise')
+        Traceback (most recent call last):
+            ...
+        ValueError: noColColide: non-key column name collision(s) ...
     """
     masterColumns = _to_col_list(masterColumns)
     colideColumns = _to_col_list(colideColumns)
@@ -70,13 +97,45 @@ def noColColide(masterColumns, colideColumns, index, masterList=None):
     else:
         masterList = _to_col_list(masterList)
 
-    result = list(index)  # always a fresh copy
+    mode = (on_collision if on_collision is not None else ON_COLLISION_EXCLUDE)
+    if isinstance(mode, str):
+        mode = mode.lower().strip()
+    if mode not in _ON_COLLISION_MODES:
+        raise ValueError(
+            f"noColColide: on_collision must be one of {_ON_COLLISION_MODES}, "
+            f"got {on_collision!r}"
+        )
+
+    index_set = set(index)
+    colide_set = set(colideColumns)
+    master_list_set = set(masterList)
+
+    result = list(index)  # always a fresh copy; keys may exist on both sides
+    collisions = []
+
     for item in masterColumns:
-        if (item not in result and
-            item in masterList and
-            item not in colideColumns and
-            item is not None):
-            result.append(item)
+        if item is None or item in result:
+            continue
+        if item not in master_list_set:
+            continue
+        if item in colide_set and item not in index_set:
+            # Non-key name appears on both sides of the join.
+            collisions.append(item)
+            if mode == ON_COLLISION_EXCLUDE:
+                continue  # legacy: drop from master select list
+            # raise mode: still skip building a bad select list; raise below
+            continue
+        result.append(item)
+
+    if mode == ON_COLLISION_RAISE and collisions:
+        raise ValueError(
+            "noColColide: non-key column name collision(s) with "
+            f"on_collision='raise': {collisions}. "
+            "Join keys (index) may share names; non-key columns must be "
+            "unique on both sides. Typical fix: distinct write_index_table "
+            "`code` values so index_*/last_*/entries_* do not clash, or "
+            "rename before attach."
+        )
 
     return result
 

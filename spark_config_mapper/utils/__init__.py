@@ -31,6 +31,8 @@ from spark_config_mapper.utils.spark_ops import (
 
 from spark_config_mapper.utils.list_ops import (
     noColColide,
+    ON_COLLISION_EXCLUDE,
+    ON_COLLISION_RAISE,
     unique_non_none,
     find_single_level_items,
     is_single_level,
@@ -76,6 +78,8 @@ __all__ = [
     'getColumnMapping',
     # List operations
     'noColColide',
+    'ON_COLLISION_EXCLUDE',
+    'ON_COLLISION_RAISE',
     'unique_non_none',
     'find_single_level_items',
     'is_single_level',

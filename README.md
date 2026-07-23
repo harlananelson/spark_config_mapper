@@ -161,7 +161,7 @@ outputPath: /data/${project}/${today}/
 | `flatten_schema(schema)` | Flatten nested schema to dot notation |
 | `flat_schema(table)` | Get flat schema from table/DataFrame |
 | `writeTable(df, outTable, ...)` | Write DataFrame to Spark table |
-| `noColColide(master, other, index)` | Resolve column name collisions |
+| `noColColide(master, other, index, on_collision='exclude')` | Resolve column name collisions (`exclude` default; `raise` for attach) |
 | `setFunctionParameters(func, params, config)` | Map config to function params |
 
 ## Architecture
